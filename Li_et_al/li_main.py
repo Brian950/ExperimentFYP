@@ -1,6 +1,6 @@
 import cv2
 import time
-from NanMa_et_al import process_image
+from Li_et_al import process_image
 import tkinter as tk
 from threading import Thread
 
@@ -10,10 +10,7 @@ VIDEO_OPTIONS = ["highway.mp4", "highway_sunlight.mp4",
                  "night_with_bend.mp4", "shadows_and_road_markings.mp4",
                  "shadows_and_traffic.mp4"]
 cap = None
-
-CALIBRATE = True
 fps_count = 0
-calibration_dir = "C:\\Users\\Brian\\Desktop\\test_videos\\calibration\\"
 
 
 def main():
@@ -61,7 +58,6 @@ def setup_video():
         print("Error opening video stream")
         exit(1)
 
-    mtx, dist = process_image.calibrate_camera(calibration_dir, 9, 6, (720, 1280))
     while True:
         start_time = time.time()
         selection = video_string.get()
@@ -69,10 +65,7 @@ def setup_video():
 
         ret, frame = cap.read()
         if ret:
-            if CALIBRATE:
-                processed_view = process_image.process(frame, mtx, dist, selection=selection)
-            else:
-                processed_view = process_image.process(frame, selection=selection)
+            processed_view = process_image.process(frame, selection=selection)
             cv2.imshow('ImageStream', processed_view)
 
             if cv2.waitKey(25) & 0xFF == ord('q'):
