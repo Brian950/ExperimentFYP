@@ -1,7 +1,9 @@
 from collections import deque
 import numpy as np
 
-class Line():
+
+class Line:
+
     def __init__(self, maxSamples=4):
         self.maxSamples = maxSamples
         # x values of the last n fits of the line

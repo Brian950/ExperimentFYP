@@ -92,7 +92,7 @@ def hough_lines(img, frame):
     global old_positive_line
     global old_negative_line
 
-    lines = cv2.HoughLinesP(img, 1, math.pi / 180.0, 40, np.array([]), 100, 200)
+    lines = cv2.HoughLinesP(img, 1, math.pi / 180.0, 40, np.array([]), 200, 200)
 
     try:
         # Line lengths

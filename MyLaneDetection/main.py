@@ -1,5 +1,5 @@
 import cv2
-from MyBasicLaneDetection import process_image
+from MyLaneDetection import process_image
 
 cap = cv2.VideoCapture("C:\\Users\\Brian\\Desktop\\test_videos\\highway1.mp4")
 if not cap.isOpened:
