@@ -8,6 +8,20 @@ class DrawLane:
         self.left_line = left_line
         self.old_result = None
 
+    def find_lanes(self, img):
+        if self.left_line.detected and self.right_line.detected:  # Perform margin search if exists prior success.
+            # Margin Search
+            left_lane_inds, right_lane_inds, out_img = self.margin_search(img)
+            # Update the lane detections
+            self.validate_lane(img, left_lane_inds, right_lane_inds)
+
+        else:  # Perform a full window search if no prior successful detections.
+            # Window Search
+            left_lane_inds, right_lane_inds, out_img = self.window_search(img)
+            # Update the lane detections
+            self.validate_lane(img, left_lane_inds, right_lane_inds)
+        return out_img
+
     def window_search(self, binary_warped):
         # Take a histogram of the bottom half of the image
         bottom_half_y = binary_warped.shape[0]/2
@@ -99,13 +113,75 @@ class DrawLane:
 
         return left_lane_inds, right_lane_inds, out_img
 
-    def find_lanes(self, img):
-        # Perform a full window search if no prior successful detections.
-        # Window Search
-        left_lane_inds, right_lane_inds, out_img = self.window_search(img)
-        # Update the lane detections
-        self.validate_lane(img, left_lane_inds, right_lane_inds)
-        return out_img
+    def margin_search(self, binary_warped):
+        left_line = self.left_line
+        right_line = self.right_line
+        # Performs window search on subsequent frame, given previous frame.
+        nonzero = binary_warped.nonzero()
+        nonzeroy = np.array(nonzero[0])
+        nonzerox = np.array(nonzero[1])
+        margin = 50
+
+        left_lane_inds = ((nonzerox > (
+                    left_line.current_fit[0] * (nonzeroy ** 2) + left_line.current_fit[1] * nonzeroy +
+                    left_line.current_fit[2] - margin)) & (nonzerox < (
+                    left_line.current_fit[0] * (nonzeroy ** 2) + left_line.current_fit[1] * nonzeroy +
+                    left_line.current_fit[2] + margin)))
+        right_lane_inds = ((nonzerox > (
+                    right_line.current_fit[0] * (nonzeroy ** 2) + right_line.current_fit[1] * nonzeroy +
+                    right_line.current_fit[2] - margin)) & (nonzerox < (
+                    right_line.current_fit[0] * (nonzeroy ** 2) + right_line.current_fit[1] * nonzeroy +
+                    right_line.current_fit[2] + margin)))
+
+        # Again, extract left and right line pixel positions
+        leftx = nonzerox[left_lane_inds]
+        lefty = nonzeroy[left_lane_inds]
+        rightx = nonzerox[right_lane_inds]
+        righty = nonzeroy[right_lane_inds]
+
+        try:
+            # Fit a second order polynomial to each
+            left_fit = np.polyfit(lefty, leftx, 2)
+            right_fit = np.polyfit(righty, rightx, 2)
+        except TypeError as te:
+            return self.window_search(binary_warped)
+
+        # Generate x and y values for plotting
+        ploty = np.linspace(0, binary_warped.shape[0] - 1, binary_warped.shape[0])
+        left_fitx = left_fit[0] * ploty ** 2 + left_fit[1] * ploty + left_fit[2]
+        right_fitx = right_fit[0] * ploty ** 2 + right_fit[1] * ploty + right_fit[2]
+
+        # Generate a blank image to draw on
+        out_img = np.dstack((binary_warped, binary_warped, binary_warped)) * 255
+
+        # Create an image to draw on and an image to show the selection window
+        window_img = np.zeros_like(out_img)
+
+        # Generate a polygon to illustrate the search window area
+        # And recast the x and y points into usable format for cv2.fillPoly()
+        left_line_window1 = np.array([np.transpose(np.vstack([left_fitx - margin, ploty]))])
+        left_line_window2 = np.array([np.flipud(np.transpose(np.vstack([left_fitx + margin, ploty])))])
+        left_line_pts = np.hstack((left_line_window1, left_line_window2))
+        right_line_window1 = np.array([np.transpose(np.vstack([right_fitx - margin, ploty]))])
+        right_line_window2 = np.array([np.flipud(np.transpose(np.vstack([right_fitx + margin, ploty])))])
+        right_line_pts = np.hstack((right_line_window1, right_line_window2))
+
+        # Draw the lane onto the warped blank image
+        cv2.fillPoly(window_img, np.intc([left_line_pts]), (0, 255, 0))
+        cv2.fillPoly(window_img, np.intc([right_line_pts]), (0, 255, 0))
+        out_img = cv2.addWeighted(out_img, 1, window_img, 0.3, 0)
+
+        # Color in left and right line pixels
+        out_img[nonzeroy[left_lane_inds], nonzerox[left_lane_inds]] = [1, 0, 0]
+        out_img[nonzeroy[right_lane_inds], nonzerox[right_lane_inds]] = [0, 0, 1]
+
+        # Draw polyline on image
+        right = np.asarray(tuple(zip(right_fitx, ploty)), np.int32)
+        left = np.asarray(tuple(zip(left_fitx, ploty)), np.int32)
+        cv2.polylines(out_img, [right], False, (1, 1, 0), thickness=5)
+        cv2.polylines(out_img, [left], False, (1, 1, 0), thickness=5)
+
+        return left_lane_inds, right_lane_inds, out_img
 
     def validate_lane(self, img, left_lane_inds, right_lane_inds):
 
