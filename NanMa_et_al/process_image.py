@@ -38,7 +38,7 @@ def process(frame, mtx=None, dist=None, selection=None):
     man = Manipulation(selection)
     src, dst = man.get_perspective_matrix()
 
-    transform = perspective_transform(view, src, dst, img_size)
+    transform = man.perspective_transform(view, src, dst, img_size)
 
     # Classification of light intensity
     gray = cv2.cvtColor(transform, cv2.COLOR_RGB2GRAY)
@@ -95,31 +95,6 @@ def gaussian_blur(img, x, y):
     return gauss_img
 
 
-# Calibration method modified from https://opencv-python-tutroals.readthedocs.io
-def calibrate_camera(directory, nx, ny, img_size):
-    objp = np.zeros((nx*ny, 3), np.float32)
-    objp[:, :2] = np.mgrid[0:nx, 0:ny].T.reshape(-1, 2)
-
-    objpoints = []
-    imgpoints = []
-
-    images = glob.glob(directory+'*.jpg')
-
-    for fname in images:
-        img = cv2.imread(fname)
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-
-        ret, corners = cv2.findChessboardCorners(gray, (nx, ny), None)
-
-        if ret == True:
-            objpoints.append(objp)
-            imgpoints.append(corners)
-
-    ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objpoints, imgpoints, img_size, None, None)
-
-    return mtx, dist
-
-
 def undistort(frame, mtx, dist):
     frame = cv2.undistort(frame, mtx, dist, None, mtx)
     return frame
@@ -129,12 +104,6 @@ def gray_equalisation(image):
     clahe = cv2.createCLAHE(clipLimit=2, tileGridSize=(6, 6))
     image = clahe.apply(image)
     return image
-
-
-def perspective_transform(image, src, dst, img_size):
-    matrix = cv2.getPerspectiveTransform(dst, src)
-    warped = cv2.warpPerspective(image, matrix, img_size)
-    return warped
 
 
 def sobel(image, kernel):

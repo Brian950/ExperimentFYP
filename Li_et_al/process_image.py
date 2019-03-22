@@ -15,7 +15,7 @@ def process(frame, selection):
 
     man = Manipulation(selection)
     src, dst = man.get_perspective_matrix()
-    transform = perspective_transform(image, src, dst, (854, 360))
+    transform = man.perspective_transform(image, src, dst, (854, 360))
 
     # Separate the V channel from the HSV image
     v = hsv(transform)
@@ -47,12 +47,10 @@ def process(frame, selection):
     combo = cv2.bitwise_and(white_binary, laplacian_smooth)
     combo = cv2.bitwise_or(combo, full_canny)
     # Noise removal
-    combo = cv2.bilateralFilter(combo, 5, 150, 150)
+    #combo = cv2.bilateralFilter(combo, 5, 150, 150)
 
-    left_combo = crop(combo, 0, 360, 0, 427)
-    right_combo = crop(combo, 0, 360, 427, 854)
     lines = cv2.HoughLinesP(combo, rho=1, theta=1 * np.pi / 180,
-                            threshold=40, minLineLength=100, maxLineGap=500)
+                            threshold=50, minLineLength=100, maxLineGap=500)
 
     # Line lengths
     longest_positive_length = 0
@@ -70,12 +68,10 @@ def process(frame, selection):
                     length = math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
                     if angle > 0:
                         if length > longest_positive_length:
-                            print("Pos: " + str(angle))
                             longest_positive_length = length
                             longest_positive_line = line
                     elif angle < 0:
                         if length > longest_negative_length:
-                            print("Neg: " + str(angle))
                             longest_negative_length = length
                             longest_negative_line = line
 
@@ -100,40 +96,6 @@ def process(frame, selection):
     result = draw_lanes.assemble_img(transform, output_img, res, combo)
 
     return result
-
-
-def perspective_transform(image, src, dst, img_size):
-    matrix = cv2.getPerspectiveTransform(dst, src)
-    warped = cv2.warpPerspective(image, matrix, img_size)
-    return warped
-
-
-def set_roi(img):
-    imshape = img.shape
-
-    # points of the roi
-    lower_left = [0, imshape[0] - imshape[0]/4]
-    lower_right = [imshape[1], imshape[0] - imshape[0]/4]
-    top_left = [imshape[1]/2 - imshape[1]/10, imshape[0]/2 - imshape[0]/10]
-    top_right = [imshape[1]/2 + imshape[1]/10, imshape[0]/2 - imshape[0]/10]
-
-    vertices = [np.array([lower_left, top_left, top_right, lower_right], dtype=np.int32)]
-    # defining a blank mask to start with
-    mask = np.zeros_like(img)
-
-    # mask with depending on the input image's colour channels
-    if len(img.shape) > 2:
-        channel_count = img.shape[2]
-        ignore_mask_color = (255,) * channel_count
-    else:
-        ignore_mask_color = 255
-
-    cv2.fillPoly(mask, vertices, ignore_mask_color)
-
-    # returning the image only where mask pixels are nonzero
-    masked_image = cv2.bitwise_and(img, mask)
-
-    return masked_image
 
 
 def crop(image, ht, hb, wt, wb):

@@ -1,6 +1,6 @@
 import cv2
 import time
-from NanMa_et_al import process_image
+from Borkar_et_al import process_image
 import tkinter as tk
 from threading import Thread
 
@@ -9,13 +9,9 @@ VIDEO_OPTIONS = ["highway.mp4", "highway2.mp4", "highway_sunlight.mp4",
                  "highway_night.mp4", "night_traffic.mp4",
                  "night_with_bend.mp4", "shadows_and_road_markings.mp4",
                  "shadows_and_traffic.mp4"]
-cap = None
-
-CALIBRATE = False
 VIDEO_THREAD_RUNNING = True
-
+cap = None
 fps_count = 0
-calibration_dir = "C:\\Users\\Brian\\Desktop\\test_videos\\calibration\\"
 
 
 def main():
@@ -42,7 +38,6 @@ def setup_gui():
 def setup_video_thread():
     global cap
     global VIDEO_THREAD_RUNNING
-
     try:
         if cap is None:
             VIDEO_THREAD_RUNNING = True
@@ -76,8 +71,7 @@ def setup_video():
         print("Error opening video stream")
         exit(1)
 
-    #mtx, dist = process_image.calibrate_camera(calibration_dir, 9, 6, (720, 1280))
-    mtx, dist = None, None
+    frames = []
     while True:
 
         if VIDEO_THREAD_RUNNING is False:
@@ -92,21 +86,26 @@ def setup_video():
         fps_count += 1
 
         ret, frame = cap.read()
+        frames.append(frame)
+        if len(frames) == 4:
+            del frames[0]
+
         if ret:
-            if CALIBRATE:
-                processed_view = process_image.process(frame, mtx, dist, selection=selection)
-            else:
-                processed_view = process_image.process(frame, selection=selection)
+            # for f in frames:
+            #     frame = cv2.addWeighted(frame, 1, f, 1, 0)
+            processed_view = process_image.process(frame, selection=selection)
             cv2.imshow('Video Stream', processed_view)
 
             if cv2.waitKey(25) & 0xFF == ord('q'):
                 cv2.destroyAllWindows()
                 break
         else:
-            cv2.setTrackbarPos("Video Slider", "Video Stream", 0)
+            frames = []
             cap = cv2.VideoCapture("C:\\Users\\Brian\\Desktop\\test_videos\\BDD\\"+selection)
 
-        #print("FPS: ", 1.0 / (time.time() - start_time))
+        # if fps_count == 300:
+        #    cv2.imwrite("C:\\Users\\Brian\\Desktop\\test_videos\\project_images\\hist_eq_original.jpg", processed_view)
+        print("FPS: ", 1.0 / (time.time() - start_time))
 
 
 def trackbar_update(self):
