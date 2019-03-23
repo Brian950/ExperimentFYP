@@ -4,7 +4,7 @@ import numpy as np
 
 class Line:
 
-    def __init__(self, maxSamples=3):
+    def __init__(self, maxSamples=4):
         self.maxSamples = maxSamples
         # x values of the last n fits of the line
         self.recent_xfitted = deque(maxlen=self.maxSamples)

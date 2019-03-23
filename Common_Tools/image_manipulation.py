@@ -1,7 +1,6 @@
 import numpy as np
 import cv2
 import glob
-import math
 
 
 class Manipulation:
@@ -25,7 +24,7 @@ class Manipulation:
             return src, dst
         elif self.selection == "highway_night.mp4":
             src = np.float32([[0, 0], [854, 0], [0, 360], [854, 360]])
-            dst = np.float32([[340, 280], [620, 280], [0, 360], [854, 360]])
+            dst = np.float32([[340, 275], [620, 275], [0, 360], [854, 360]])
             return src, dst
         else:
             src = np.float32([[0, 0], [854, 0], [0, 360], [854, 360]])

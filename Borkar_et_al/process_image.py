@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 from Common_Tools.image_manipulation import Manipulation
-from Borkar_et_al.draw_lane import DrawLane
+from Common_Tools.draw_lane import DrawLane
 from Common_Tools.line import Line
 import math
 
@@ -27,7 +27,7 @@ def process(image, selection):
     vertical = adap_thresh
     rows = vertical.shape[0]
     # v_pix_size is the number of rows to be considered a valid vertical blob
-    v_pix_size = rows / 30
+    v_pix_size = rows / 20
     v_pix_size = int(v_pix_size)
     v_struc = cv2.getStructuringElement(cv2.MORPH_RECT, (1, v_pix_size))
     # Apply morphology operations

@@ -23,15 +23,14 @@ def process(frame, selection):
     hsv_white = cv2.GaussianBlur(hsv_white, (3, 3), 0)
     hsv_white = cv2.morphologyEx(hsv_white, cv2.MORPH_CLOSE, (5, 5))
 
-    # First edge detection on whole frame
-    full_canny = canny(transform, 200, 200)
-
     # Grayscale image
     gray = cv2.cvtColor(transform, cv2.COLOR_RGB2GRAY)
-    #gray = gray_equalisation(gray)
+    gray = gray_equalisation(gray)
 
     # Blurred
     gray = cv2.GaussianBlur(gray, (5, 5), 0)
+    # Use adaptive threshold
+    adap_thresh = cv2.adaptiveThreshold(gray, 225, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 51, -15)
 
     # Global gradient
     laplacian = cv2.Laplacian(gray, cv2.CV_64F)
@@ -45,9 +44,8 @@ def process(frame, selection):
     laplacian_smooth = laplacian_smooth.astype('uint8')
 
     combo = cv2.bitwise_and(white_binary, laplacian_smooth)
-    combo = cv2.bitwise_or(combo, full_canny)
-    # Noise removal
-    #combo = cv2.bilateralFilter(combo, 5, 150, 150)
+    combo = cv2.bitwise_or(combo, adap_thresh)
+    combo = cv2.bitwise_or(combo, score_pixels(transform))
 
     get_hough_lines(combo)
 
@@ -59,10 +57,41 @@ def process(frame, selection):
 
     return result
 
+
+def score_pixels(img):
+    """
+    Takes a road image and returns an image where pixel intensity maps to likelihood of it being part of the lane.
+    Each pixel gets its own score, stored as pixel intensity. An intensity of zero means it is not from the lane,
+    and a higher score means higher confidence of being from the lane.
+    :param img: an image of a road, typically from an overhead perspective.
+    :return: The score image.
+    """
+    # Settings to run thresholding operations on
+    settings = [{'name': 'value', 'cspace': 'HSV', 'channel': 2, 'clipLimit': 6.0, 'threshold': 220}]
+
+    # Perform binary thresholding according to each setting and combine them into one image.
+    scores = np.zeros(img.shape[0:2]).astype('uint8')
+    for params in settings:
+        # Change color space
+        color_t = getattr(cv2, 'COLOR_RGB2{}'.format(params['cspace']))
+        gray = cv2.cvtColor(img, color_t)[:, :, params['channel']]
+
+        # Normalize regions of the image using CLAHE
+        clahe = cv2.createCLAHE(params['clipLimit'], tileGridSize=(8, 8))
+        norm_img = clahe.apply(gray)
+
+        # Threshold to binary
+        ret, binary = cv2.threshold(norm_img, params['threshold'], 1, cv2.THRESH_BINARY)
+
+        scores += binary
+
+    return cv2.normalize(scores, None, 0, 255, cv2.NORM_MINMAX)
+
+
 def get_hough_lines(combo):
+
     lines = cv2.HoughLinesP(combo, rho=1, theta=1 * np.pi / 180,
                             threshold=50, minLineLength=100, maxLineGap=500)
-
     # Line lengths
     longest_positive_length = 0
     longest_negative_length = 0
@@ -74,7 +103,7 @@ def get_hough_lines(combo):
             for x1, y1, x2, y2 in line:
                 # Draw lane lines
                 angle = np.arctan2(y2 - y1, x2 - x1) * 180 / np.pi
-                if (angle < -60 and angle > -90) or (angle > 60 and angle < 90):
+                if (angle < -45 and angle > -110) or (angle > 45 and angle < 110):
                     # get the longest positive and negative line
                     length = math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
                     if angle > 0:

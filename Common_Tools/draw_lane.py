@@ -1,5 +1,8 @@
+import sys
+
 import cv2
 import numpy as np
+import matplotlib.pyplot as plt
 
 class DrawLane:
 
@@ -232,7 +235,7 @@ class DrawLane:
     def draw_lane(self, view, undist, img, src, dst):
 
         matrix = cv2.getPerspectiveTransform(src, dst)
-        # Generate x and y values for plotting
+        # Generate x and y values for plotting (numeric sequence)
         ploty = np.linspace(0, undist.shape[0] - 1, undist.shape[0])
 
         left_fit = self.left_line.best_fit
