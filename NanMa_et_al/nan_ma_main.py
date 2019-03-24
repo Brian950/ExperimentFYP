@@ -106,7 +106,7 @@ def setup_video():
             cv2.setTrackbarPos("Video Slider", "Video Stream", 0)
             cap = cv2.VideoCapture("C:\\Users\\Brian\\Desktop\\test_videos\\BDD\\"+selection)
 
-        #print("FPS: ", 1.0 / (time.time() - start_time))
+        print("FPS: ", 1.0 / (time.time() - start_time))
 
 
 def trackbar_update(self):

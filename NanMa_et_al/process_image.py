@@ -53,31 +53,26 @@ def process(frame, mtx=None, dist=None, selection=None):
         eq_image = gray
 
     sharp = sharpen(eq_image)
-    sharp = sharpen(eq_image)
     gb_sharp = gaussian_blur(sharp, 7, 7)
-
-    #sobel_image = sobel(gb_sharp, 1)
-    #sobel_image = gaussian_blur(sobel_image, 31, 31)
 
     canny_image = canny(eq_image, 200, 200)
 
-    #binary_image = set_binary(transform)
     gray_binary_image = set_gray_binary(gb_sharp)
 
-    #combo_image = cv2.bitwise_or(canny_image, binary_image)
+    combo_image = cv2.bitwise_or(canny_image, gray_binary_image)
 
     color_binary_image = lane_finder.apply(transform)
 
-    combo_image = cv2.bitwise_or(gray_binary_image, color_binary_image)
+    combo_image = cv2.bitwise_or(combo_image, color_binary_image)
 
     draw_lanes = DrawLane(right_line, left_line)
     output_img = draw_lanes.find_lanes(combo_image)
     trans_filler = np.zeros_like(frame)
     res = draw_lanes.draw_lane(view, trans_filler, output_img, src, dst)
 
-    result = draw_lanes.assemble_img(transform, output_img, res, combo_image)
+    result = assemble_img(transform, output_img, res, combo_image, cv2.bitwise_not(cv2.cvtColor(eq_image, cv2.COLOR_GRAY2RGB)))
 
-    return result
+    return eq_image
 
 
 def set_gray_binary(image):
@@ -120,3 +115,42 @@ def sharpen(image):
     image = cv2.filter2D(image, -1, sharp_kernel)
     image = cv2.bilateralFilter(image, 5, 50, 50)
     return image
+
+
+def assemble_img(warped, polynomial_img, lane_img, combo_image, gray_eq):
+    # Define output image
+    img_out = np.zeros((740, 1290, 3), dtype=np.uint8)
+    if lane_img is not None:
+        img_out[0:360, 0:854, :] = lane_img
+
+    combo_image = cv2.cvtColor(combo_image, cv2.COLOR_GRAY2RGB)
+    # Text format
+    fontScale = 1
+    thickness = 1
+    fontFace = cv2.FONT_HERSHEY_SIMPLEX
+
+    # Perspective transform
+    img_out[0:240, 865:1285, :] = cv2.resize(warped, (420, 240))
+    boxsize, _ = cv2.getTextSize("Transformed", fontFace, fontScale, thickness)
+    cv2.putText(img_out, "Transformed", (int(1090 - boxsize[0] / 2), 40), fontFace, fontScale, (255, 255, 255),
+                thickness, lineType=cv2.LINE_AA)
+
+    #
+    img_out[250:490, 865:1285, :] = cv2.resize(combo_image, (420, 240))
+    boxsize, _ = cv2.getTextSize("Threshold", fontFace, fontScale, thickness)
+    cv2.putText(img_out, "Threshold", (int(1090 - boxsize[0] / 2), 280), fontFace, fontScale, (255, 255, 255),
+                thickness, lineType=cv2.LINE_AA)
+
+    # Polynomial lines
+    img_out[500: 740, 865:1285, :] = cv2.resize(polynomial_img * 255, (420, 240))
+    boxsize, _ = cv2.getTextSize("Detected Lane", fontFace, fontScale, thickness)
+    cv2.putText(img_out, "Detected Lane", (int(1090 - boxsize[0] / 2), 520), fontFace, fontScale, (255, 255, 255),
+                thickness, lineType=cv2.LINE_AA)
+
+    # Gray EQ
+    img_out[480: 720, 440:860, :] = cv2.resize(gray_eq * 255, (420, 240))
+    boxsize, _ = cv2.getTextSize("Gray EQ", fontFace, fontScale, thickness)
+    cv2.putText(img_out, "Gray EQ", (int(650 - boxsize[0] / 2), 520), fontFace, fontScale, (255, 255, 255),
+                thickness, lineType=cv2.LINE_AA)
+
+    return img_out
