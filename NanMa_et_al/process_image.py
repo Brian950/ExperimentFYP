@@ -1,7 +1,7 @@
 import cv2
 import glob
 import numpy as np
-from NanMa_et_al.hsv_mask import HSVMask
+from NanMa_et_al.hsl_mask import HSLMask
 from Common_Tools.line import Line
 from Common_Tools.image_manipulation import Manipulation
 from Common_Tools.draw_lane import DrawLane
@@ -9,9 +9,8 @@ from Common_Tools.draw_lane import DrawLane
 SOBEL = True
 img_size = (854, 360)
 
-lane_params = {'saturation': 100, 'light_yellow': 60, 'light_white': 195,
-               'gradient': (0.7, 1.5), 'x_thresh': 20, 'magnitude': 40}
-lane_finder = HSVMask(lane_params)
+lane_params = {'saturation': 100, 'light_yellow': 80, 'light_white': 195}
+hsv_mask = HSLMask(lane_params)
 
 left_lane = False
 right_lane = False
@@ -45,7 +44,7 @@ def process(frame, mtx=None, dist=None, selection=None):
     gray_mean_val = np.mean(gray)
 
     #Pixel gray value
-    if gray_mean_val > 150:
+    if gray_mean_val > 130:
         # High light intensity = gray equalisation
         eq_image = gray_equalisation(gray)
     else:
@@ -55,13 +54,13 @@ def process(frame, mtx=None, dist=None, selection=None):
     sharp = sharpen(eq_image)
     gb_sharp = gaussian_blur(sharp, 7, 7)
 
-    canny_image = canny(eq_image, 200, 200)
+    canny_image = canny(gb_sharp, 50, 100)
 
     gray_binary_image = set_gray_binary(gb_sharp)
 
     combo_image = cv2.bitwise_or(canny_image, gray_binary_image)
 
-    color_binary_image = lane_finder.apply(transform)
+    color_binary_image = hsv_mask.apply(transform)
 
     combo_image = cv2.bitwise_or(combo_image, color_binary_image)
 
@@ -70,9 +69,12 @@ def process(frame, mtx=None, dist=None, selection=None):
     trans_filler = np.zeros_like(frame)
     res = draw_lanes.draw_lane(view, trans_filler, output_img, src, dst)
 
-    result = assemble_img(transform, output_img, res, combo_image, cv2.bitwise_not(cv2.cvtColor(eq_image, cv2.COLOR_GRAY2RGB)))
+    result = assemble_img(transform,
+                          output_img, res, combo_image,
+                          cv2.cvtColor(canny_image, cv2.COLOR_GRAY2RGB),
+                          cv2.cvtColor(gb_sharp, cv2.COLOR_GRAY2RGB))
 
-    return eq_image
+    return result
 
 
 def set_gray_binary(image):
@@ -117,40 +119,45 @@ def sharpen(image):
     return image
 
 
-def assemble_img(warped, polynomial_img, lane_img, combo_image, gray_eq):
-    # Define output image
+def assemble_img(warped, polynomial_img, lane_img, combo_image, canny_img, gray_eq):
+    # Output image
     img_out = np.zeros((740, 1290, 3), dtype=np.uint8)
     if lane_img is not None:
         img_out[0:360, 0:854, :] = lane_img
 
     combo_image = cv2.cvtColor(combo_image, cv2.COLOR_GRAY2RGB)
-    # Text format
-    fontScale = 1
-    thickness = 1
-    fontFace = cv2.FONT_HERSHEY_SIMPLEX
+    font_size = 1
+    thickness = 2
+    font = cv2.FONT_HERSHEY_SIMPLEX
 
     # Perspective transform
     img_out[0:240, 865:1285, :] = cv2.resize(warped, (420, 240))
-    boxsize, _ = cv2.getTextSize("Transformed", fontFace, fontScale, thickness)
-    cv2.putText(img_out, "Transformed", (int(1090 - boxsize[0] / 2), 40), fontFace, fontScale, (255, 255, 255),
+    boxsize, _ = cv2.getTextSize("Transformed", font, font_size, thickness)
+    cv2.putText(img_out, "Transformed", (int(1090 - boxsize[0] / 2), 40), font, font_size, (50, 200, 255),
                 thickness, lineType=cv2.LINE_AA)
 
-    #
+    # Threshold
     img_out[250:490, 865:1285, :] = cv2.resize(combo_image, (420, 240))
-    boxsize, _ = cv2.getTextSize("Threshold", fontFace, fontScale, thickness)
-    cv2.putText(img_out, "Threshold", (int(1090 - boxsize[0] / 2), 280), fontFace, fontScale, (255, 255, 255),
+    boxsize, _ = cv2.getTextSize("Threshold", font, font_size, thickness)
+    cv2.putText(img_out, "Threshold", (int(1090 - boxsize[0] / 2), 280), font, font_size, (200, 50, 255),
                 thickness, lineType=cv2.LINE_AA)
 
     # Polynomial lines
     img_out[500: 740, 865:1285, :] = cv2.resize(polynomial_img * 255, (420, 240))
-    boxsize, _ = cv2.getTextSize("Detected Lane", fontFace, fontScale, thickness)
-    cv2.putText(img_out, "Detected Lane", (int(1090 - boxsize[0] / 2), 520), fontFace, fontScale, (255, 255, 255),
+    boxsize, _ = cv2.getTextSize("Detected Lane", font, font_size, thickness)
+    cv2.putText(img_out, "Detected Lane", (int(1090 - boxsize[0] / 2), 520), font, font_size, (255, 255, 255),
                 thickness, lineType=cv2.LINE_AA)
 
     # Gray EQ
-    img_out[480: 720, 440:860, :] = cv2.resize(gray_eq * 255, (420, 240))
-    boxsize, _ = cv2.getTextSize("Gray EQ", fontFace, fontScale, thickness)
-    cv2.putText(img_out, "Gray EQ", (int(650 - boxsize[0] / 2), 520), fontFace, fontScale, (255, 255, 255),
+    img_out[500: 740, 440:860, :] = cv2.resize(gray_eq, (420, 240))
+    boxsize, _ = cv2.getTextSize("Gray EQ", font, font_size, thickness)
+    cv2.putText(img_out, "Gray EQ", (int(650 - boxsize[0] / 2), 530), font, font_size, (200, 255, 50),
+                thickness, lineType=cv2.LINE_AA)
+
+    # Canny Edge
+    img_out[500: 740, 10:430, :] = cv2.resize(canny_img, (420, 240))
+    boxsize, _ = cv2.getTextSize("Edge Detection", font, font_size, thickness)
+    cv2.putText(img_out, "Edge Detection", (int(230 - boxsize[0] / 2), 530), font, font_size, (50, 255, 200),
                 thickness, lineType=cv2.LINE_AA)
 
     return img_out

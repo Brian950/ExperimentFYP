@@ -46,8 +46,6 @@ def process(frame, selection):
 
     combo = cv2.bitwise_and(white_binary, laplacian_smooth)
     combo = cv2.bitwise_or(combo, full_canny)
-    # Noise removal
-    #combo = cv2.bilateralFilter(combo, 5, 150, 150)
 
     get_hough_lines(combo)
 
@@ -55,9 +53,13 @@ def process(frame, selection):
     trans_filler = np.zeros_like(frame)
     res = draw_lanes.draw_lane(image, trans_filler, output_img, src, dst)
 
-    result = draw_lanes.assemble_img(transform, output_img, res, combo)
+    result = assemble_img(transform, output_img,
+                          res, combo, cv2.cvtColor(laplacian_smooth, cv2.COLOR_GRAY2RGB),
+                          cv2.cvtColor(hsv_white, cv2.COLOR_GRAY2RGB))
+
 
     return result
+
 
 def get_hough_lines(combo):
     lines = cv2.HoughLinesP(combo, rho=1, theta=1 * np.pi / 180,
@@ -72,7 +74,7 @@ def get_hough_lines(combo):
     try:
         for line in lines:
             for x1, y1, x2, y2 in line:
-                # Draw lane lines
+                # Get line angle
                 angle = np.arctan2(y2 - y1, x2 - x1) * 180 / np.pi
                 if (angle < -60 and angle > -90) or (angle > 60 and angle < 90):
                     # get the longest positive and negative line
@@ -126,3 +128,47 @@ def gray_equalisation(image):
     clahe = cv2.createCLAHE(clipLimit=2, tileGridSize=(6, 6))
     image = clahe.apply(image)
     return image
+
+
+def assemble_img(warped, polynomial_img, lane_img, combo_image, laplacian, gray_eq):
+    # Output image
+    img_out = np.zeros((740, 1290, 3), dtype=np.uint8)
+    if lane_img is not None:
+        img_out[0:360, 0:854, :] = lane_img
+
+    combo_image = cv2.cvtColor(combo_image, cv2.COLOR_GRAY2RGB)
+    font_size = 1
+    thickness = 2
+    font = cv2.FONT_HERSHEY_SIMPLEX
+
+    # Perspective transform
+    img_out[0:240, 865:1285, :] = cv2.resize(warped, (420, 240))
+    boxsize, _ = cv2.getTextSize("Transformed", font, font_size, thickness)
+    cv2.putText(img_out, "Transformed", (int(1090 - boxsize[0] / 2), 40), font, font_size, (50, 200, 255),
+                thickness, lineType=cv2.LINE_AA)
+
+    # Threshold
+    img_out[250:490, 865:1285, :] = cv2.resize(combo_image, (420, 240))
+    boxsize, _ = cv2.getTextSize("Threshold", font, font_size, thickness)
+    cv2.putText(img_out, "Threshold", (int(1090 - boxsize[0] / 2), 280), font, font_size, (200, 50, 255),
+                thickness, lineType=cv2.LINE_AA)
+
+    # Lane lines
+    img_out[500: 740, 865:1285, :] = cv2.resize(polynomial_img * 255, (420, 240))
+    boxsize, _ = cv2.getTextSize("Detected Lane", font, font_size, thickness)
+    cv2.putText(img_out, "Detected Lane", (int(1090 - boxsize[0] / 2), 520), font, font_size, (255, 255, 255),
+                thickness, lineType=cv2.LINE_AA)
+
+    # HSV
+    img_out[500: 740, 440:860, :] = cv2.resize(gray_eq, (420, 240))
+    boxsize, _ = cv2.getTextSize("HSV Separation ", font, font_size, thickness)
+    cv2.putText(img_out, "HSV Separation", (int(650 - boxsize[0] / 2), 530), font, font_size, (200, 255, 50),
+                thickness, lineType=cv2.LINE_AA)
+
+    # Laplacian
+    img_out[500: 740, 10:430, :] = cv2.resize(laplacian, (420, 240))
+    boxsize, _ = cv2.getTextSize("Laplacian", font, font_size, thickness)
+    cv2.putText(img_out, "Laplacian", (int(230 - boxsize[0] / 2), 530), font, font_size, (50, 255, 200),
+                thickness, lineType=cv2.LINE_AA)
+
+    return img_out

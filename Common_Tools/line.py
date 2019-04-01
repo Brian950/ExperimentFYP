@@ -4,39 +4,31 @@ import numpy as np
 
 class Line:
 
-    def __init__(self, maxSamples=4):
-        self.maxSamples = maxSamples
-        # x values of the last n fits of the line
+    def __init__(self, samples=4):
+        self.maxSamples = samples
+        # x values of the last 'samples'
         self.recent_xfitted = deque(maxlen=self.maxSamples)
-        # Polynomial coefficients for the most recent fit
         self.current_fit = [np.array([False])]
-        # Polynomial coefficients averaged over the last n iterations
+        # Average of the lest samples
         self.best_fit = None
-        # Average x values of the fitted line over the last n iterations
         self.bestx = None
-        # Was the line detected in the last iteration?
+        # If the lien is detected successfully
         self.detected = False
 
     def update_lane(self, ally, allx):
-        # Updates lanes on every new frame
         # Mean x value
         self.bestx = np.mean(allx, axis=0)
-        # Fit 2nd order polynomial
+
         new_fit = np.polyfit(ally, allx, 2)
-        # Update current fit
         self.current_fit = new_fit
-        # Add the new fit to the queue
+        # Queue of line samples
         self.recent_xfitted.append(self.current_fit)
-        # Use the queue mean as the best fit
+        # Average of queue gets the best fit
         self.best_fit = np.mean(self.recent_xfitted, axis=0)
 
     def reset(self):
         self.recent_xfitted.clear()
-        # Polynomial coefficients for the most recent fit
         self.current_fit = [np.array([False])]
-        # Polynomial coefficients averaged over the last n iterations
         self.best_fit = None
-        # Average x values of the fitted line over the last n iterations
         self.bestx = None
-        # Was the line detected in the last iteration?
         self.detected = False

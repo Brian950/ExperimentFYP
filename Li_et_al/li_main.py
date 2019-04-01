@@ -6,9 +6,7 @@ from threading import Thread
 
 
 VIDEO_OPTIONS = ["highway.mp4", "highway2.mp4", "highway_sunlight.mp4",
-                 "highway_night.mp4", "night_traffic.mp4",
-                 "night_with_bend.mp4", "shadows_and_road_markings.mp4",
-                 "shadows_and_traffic.mp4"]
+                 "highway_night.mp4", "shadows_and_road_markings.mp4"]
 
 VIDEO_THREAD_RUNNING = True
 cap = None
@@ -19,6 +17,7 @@ def main():
     setup_gui()
 
 
+# Sets up small GUI to select the current video
 def setup_gui():
     global video_string
     gui = tk.Tk()

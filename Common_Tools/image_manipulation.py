@@ -8,6 +8,7 @@ class Manipulation:
     def __init__(self, selection):
         self.selection = selection
 
+    # Get the correct coordinates to un/distort the input images
     def get_perspective_matrix(self):
 
         if self.selection == "highway.mp4":
@@ -16,7 +17,7 @@ class Manipulation:
             return src, dst
         elif self.selection == "highway2.mp4":
             src = np.float32([[0, 0], [854, 0], [0, 360], [854, 360]])
-            dst = np.float32([[340, 300], [520, 300], [0, 360], [854, 360]])
+            dst = np.float32([[340, 295], [520, 295], [0, 360], [854, 360]])
             return src, dst
         elif self.selection == "highway_sunlight.mp4":
             src = np.float32([[0, 0], [854, 0], [0, 360], [854, 360]])
@@ -26,7 +27,12 @@ class Manipulation:
             src = np.float32([[0, 0], [854, 0], [0, 360], [854, 360]])
             dst = np.float32([[340, 275], [620, 275], [0, 360], [854, 360]])
             return src, dst
+        elif self.selection == "shadows_and_road_markings.mp4":
+            src = np.float32([[0, 0], [854, 0], [0, 360], [854, 360]])
+            dst = np.float32([[310, 280], [500, 280], [0, 360], [854, 360]])
+            return src, dst
         else:
+            # Default option but will most likely produce skewed image results
             src = np.float32([[0, 0], [854, 0], [0, 360], [854, 360]])
             dst = np.float32([[320, 240], [550, 240], [0, 360], [854, 360]])
             return src, dst
